@@ -1,11 +1,19 @@
 import pprint
 import asyncio
+from typing_extensions import Self
 
-import discord
-from discord.ext import commands
+import nextcord
+from nextcord import client
+from nextcord.abc import User
+from nextcord.ext import commands
+from nextcord.webhook.async_ import Webhook
 
 from youtube_dl import YoutubeDL
 import re
+
+import json
+with open("config.json", encoding="utf-8") as config:
+    config = json.load(config)
 
 URL_REG = re.compile(r'https?://(?:www\.)?.+')
 YOUTUBE_VIDEO_REG = re.compile(
@@ -23,6 +31,9 @@ class music(commands.Cog):
         # 2d array containing [song, channel]
         self.music_queue = []
         self.YDL_OPTIONS = {
+            'username': config['username'],
+            'password': config['password'],
+            'cookiefile': './cookies.txt',
             'format': 'bestaudio/best',
             'restrictfilenames': True,
             'noplaylist': False,
@@ -102,7 +113,7 @@ class music(commands.Cog):
             # remove the first element as you are currently playing it
             self.music_queue.pop(0)
 
-            self.vc.play(discord.FFmpegPCMAudio(m_url, **self.FFMPEG_OPTIONS),
+            self.vc.play(nextcord.FFmpegPCMAudio(m_url, **self.FFMPEG_OPTIONS),
                          after=lambda l: self.client.loop.call_soon_threadsafe(self.event.set))
             await self.event.wait()
             await self.play_music()
@@ -116,23 +127,24 @@ class music(commands.Cog):
         helptxt = ''
         for command in self.client.commands:
             helptxt += f'm!**{command}** - {command.help}\n'
-        embedhelp = discord.Embed(
+        embedhelp = nextcord.Embed(
             colour=1646116,  # grey
             title=f'Comandos do {self.client.user.name}',
-            description=helptxt+'\n[Enio é PIKA](https://jonetoju.tk)'
+            description=helptxt + \
+            '\n[Entre no nosso Discord!](https://jonetoju.tk)'
         )
-        embedhelp.set_thumbnail(url=self.client.user.avatar_url)
+        embedhelp.set_thumbnail(url=self.client.user.avatar.url)
         await ctx.send(embed=embedhelp)
 
     @commands.command(name="p", help="Toca uma música do YouTube", aliases=['tocar', 'r', 'reproduzir', 't', 'play'])
-    async def p(self, ctx: commands.Context, *, query: str = "MC Bruninho e Vitinho Ferrari - Sou Favela (GR6 Filmes) DJ DG e Batidão Stronda"):
+    async def p(self, ctx: commands.Context, *, query: str = "Matheus Fernandes e Dilsinho - Baby Me Atende (Clipe Oficial)"):
 
         try:
             voice_channel = ctx.author.voice.channel
         except:
             # if voice_channel is None:
             # you need to be connected so that the bot knows where to go
-            embedvc = discord.Embed(
+            embedvc = nextcord.Embed(
                 colour=1646116,  # grey
                 description='Para tocar uma música, primeiro se conecte a um canal de voz.'
             )
@@ -141,7 +153,7 @@ class music(commands.Cog):
         else:
             songs = self.search_yt(query)
             if type(songs) == type(True):
-                embedvc = discord.Embed(
+                embedvc = nextcord.Embed(
                     colour=12255232,  # red
                     description='Algo deu errado! Tente mudar ou configurar a playlist/vídeo ou escrever o nome dele novamente!'
                 )
@@ -152,18 +164,21 @@ class music(commands.Cog):
                     txt = f"Você adicionou **{size} músicas** na fila!"
                     print('Foram adicionadas {size}  novas músicas!')
                 else:
-                    url_video = f"{songs[0]['source']}"  # url
                     # text-link
                     txt = f"[**{songs[0]['title']}**]({songs[0]['source']})"
-                    # thumbnail
-                    thumb_url = f"https://img.youtube.com/vi/{url_video[32:43]}/hqdefault.jpg"
-                    print('Reproduzindo o Vídeo:', url_video)  # console-log
-                    print('Com thumbnail:', thumb_url)  # console-log
 
-                embedvc = discord.Embed(
+                embedvc = nextcord.Embed(
                     colour=32768,  # green
                     description=f"**Você adicionou:**\n\n{txt}\n\nBoa música!"
                 )
+                # url
+                url_video = f"{songs[0]['source']}"
+                # thumbnail
+                thumb_url = f"https://img.youtube.com/vi/{url_video[32:43]}/hqdefault.jpg"
+
+                print('Reproduzindo o Vídeo:', url_video)  # console-log
+                print('Com thumbnail:', thumb_url)  # console-log
+
                 embedvc.set_thumbnail(url=thumb_url)
                 await ctx.reply(embed=embedvc)
                 for song in songs:
@@ -180,13 +195,13 @@ class music(commands.Cog):
 
         print(retval)
         if retval != "":
-            embedvc = discord.Embed(
+            embedvc = nextcord.Embed(
                 colour=12255232,
                 description=f"{retval}"
             )
             await ctx.send(embed=embedvc)
         else:
-            embedvc = discord.Embed(
+            embedvc = nextcord.Embed(
                 colour=1646116,
                 description='Não existe músicas na fila no momento.'
             )
@@ -196,7 +211,7 @@ class music(commands.Cog):
     async def skip(self, ctx):
         if self.vc != "" and self.vc:
             self.vc.stop()
-            embedvc = discord.Embed(
+            embedvc = nextcord.Embed(
                 colour=1646116,  # ggrey
                 description=f"Você pulou a música."
             )
@@ -205,7 +220,7 @@ class music(commands.Cog):
     @skip.error  # Erros para kick
     async def skip_error(self, ctx, error):
         if isinstance(error, commands.MissingPermissions):
-            embedvc = discord.Embed(
+            embedvc = nextcord.Embed(
                 colour=12255232,
                 description=f"Você precisa da permissão **Gerenciar canais** para pular músicas."
             )
@@ -216,7 +231,7 @@ class music(commands.Cog):
     @commands.command(name="parar", help="Para o player de tocar músicas", aliases=["stop", "sair", "leave", "l"])
     async def stop(self, ctx: commands.Context):
 
-        embedvc = discord.Embed(colour=12255232)
+        embedvc = nextcord.Embed(colour=12255232)
 
         if not ctx.me.voice:
             embedvc.description = "Não estou conectado em um canal de voz."

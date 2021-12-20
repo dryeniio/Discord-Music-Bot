@@ -1,4 +1,5 @@
-discord.py
-discord.py[voice]
+nextcord
+nextcord[voice]
 youtube_dl
 PyNaCl
+json
