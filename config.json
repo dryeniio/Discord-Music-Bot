@@ -1,0 +1,6 @@
+{
+    "prefix": "/* Set your bot's prefix */",
+    "token": "Bot-Token (https://discord.com/developers/applications)",
+    "username": "Youtube Account /* Use the characters before the '@'' of your YouTube account. */",
+    "password": "Password Account /* Use the password of your YouTube account */"
+}
